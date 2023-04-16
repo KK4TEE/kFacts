@@ -1,5 +1,6 @@
 # Factorio Realtime Map API
 
+![A screenshot of a web browser displaying the kFacts map view with multiple player icons](/api_server/static/readme_banner.png)
 This API provides an interface to process and serve real-time game data from the popular game Factorio. It utilizes a custom mod that saves game data to storage. The API is designed to be used by a custom mapping webpage, enabling a map view for the player's second monitor.
 
 ## Getting Started: Running the Mod
@@ -8,6 +9,8 @@ This API provides an interface to process and serve real-time game data from the
 - Click on the link to download the Factorio mod
 - Save the mod to your Factorio mods directory
     - On Windows, this is usually C:\Users\<your user name>\appdata\Roaming\Factorio\mods
+    - On MacOS, this is usually ~/Library/Application Support/factorio/mods
+    - On Linux, this is usually ~/.factorio/mods
 - Access the map view from the web service's page
 
 These instructions will help you set up the project on your local machine for development and testing purposes.
@@ -27,14 +30,14 @@ The API has one main endpoint:
 
 1. Clone the repository to your local machine:
 ```
-git clone https://github.com/KK4TEE/kFact.git
+git clone https://github.com/KK4TEE/kFacts.git
 ```
 
 2. Change to the project directory:
 ```
-cd factorio-realtime-map-api
+cd kFacts
+cd kFacts
 ```
-markdown
 
 3. Install the required dependencies:
 ```
