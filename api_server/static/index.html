@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Factorio Mod Download and Information</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+    }
+
+    header {
+      background-color: #333;
+      color: white;
+      text-align: left;
+      padding: 1rem;
+    }
+
+    main {
+      padding: 2rem;
+    }
+
+    h2 {
+      border-bottom: 2px solid #333;
+      padding-bottom: 0.5rem;
+    }
+
+    a {
+      color: #1a73e8;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    ul {
+      list-style-type: none;
+      padding: 0;
+    }
+
+    li {
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Factorio Mod Download and Information</h1>
+  </header>
+  <main>
+    <section>
+      <h2>Minimap</h2>
+      <ul>
+        <li><a href="/static/map.html">View Map</a></li>
+        <li><a href="/minimap">View Minimap raw image</a></li>
+      </ul>
+    </section>
+    
+    <section>
+      <h2>Mod Download</h2>
+      <p><a id="mod-download-link" href="#">Download Mod</a></p>
+    </section>
+    
+    <section>
+      <h2>README</h2>
+      <p><a href="/readme">README</a></p>
+    </section>
+    
+    <section>
+      <h2>Mod Information</h2>
+      <p><a href="/api/mod-info">View Mod Information</a></p>
+    </section>
+    
+    <section>
+      <h2>Data</h2>
+      <p><a href="/api/data">View Data</a></p>
+    </section>
+  </main>
+  
+  <script>
+    async function fetchModInfo() {
+      const response = await fetch('/api/mod-info');
+      const modInfo = await response.json();
+      const modCurrentVersion = `${modInfo.name}_${modInfo.version}.zip`;
+      const downloadLink = document.getElementById('mod-download-link');
+      downloadLink.href = `/download/${modCurrentVersion}`;
+      downloadLink.textContent = `Download ${modCurrentVersion}`;
+    }
+
+    fetchModInfo();
+  </script>
+</body>
+</html>

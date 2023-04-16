@@ -1,0 +1,40 @@
+# .gitignore
+
+# Node.js
+# =========================
+/api_server/node_modules/
+/api_server/package-lock.json
+/api_server/npm-debug.log
+/api_server/yarn-error.log
+/api_server/.env
+/api_server/.cache
+/api_server/dist/
+/api_server/coverage/
+/api_server/**/*.log
+/api_server/**/*.zip
+
+# Lua
+# =========================
+*.tmp
+*.bak
+*.swp
+*.luac
+
+# Visual Studio Code
+# =========================
+.vscode/
+*.code-workspace
+
+# macOS
+# =========================
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnail caches
+._*
+Thumbs.db
+
+# Other common files to ignore
+*.orig
+*.rej

@@ -1,0 +1,9 @@
+{
+  "name": "kFacts",
+  "version": "0.3.1",
+  "title": "kFacts",
+  "author": "KK4TEE",
+  "description": "Scans the map for players' locations and saves them to a JSON file.",
+  "factorio_version": "1.1",
+  "dependencies": ["base >= 1.1.0"]
+}

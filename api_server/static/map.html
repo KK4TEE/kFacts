@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Custom Map with Leaflet</title>
+  <link rel="stylesheet" href="/static/leaflet/leaflet.css">
+  <script src="/static/leaflet/leaflet.js"></script>
+  <style>
+    .player-label {
+      position: absolute;
+      top: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-weight: bold;
+      background-color: white;
+      border-radius: 10px;
+      padding: 2px 6px;
+    }
+  </style>
+</head>
+<body>
+  <div id="control-panel" style="position: absolute; top: 100px; left: 10px; z-index: 1000; background-color: white; padding: 10px; border-radius: 5px;">
+    <div id="countdown-timer" style="font-weight: bold; margin-bottom: 10px;">Next screenshot in: --</div>
+    <h4>Toggle Markers</h4>
+    <input type="checkbox" id="toggle-players" checked> Players<br>
+    <input type="checkbox" id="toggle-trains" checked> Trains<br>
+    <input type="checkbox" id="toggle-turrets" checked> Turrets<br>
+  </div>
+  
+  <div id="map" style="width: 100%; height: 100vh;"></div>
+  <script>
+    const map = L.map('map', {
+      crs: L.CRS.Simple,
+      minZoom: -2
+    });
+
+    const markers = {
+      players: {},
+      trains: {},
+      turrets: {},
+    };
+
+    // TODO: Implement markerVisibility using map layers
+    // These do nothing yet
+    const markerVisibility = { 
+      players: true,
+      trains: false,
+      turrets: false,
+    };
+
+    const nonFiringOpacity = 0.25;
+    const nonFiringDiameter = 7; // px
+    const firingMinOpacity = 0.5;
+    const firingMaxOpacity = 1;
+    const firingDiameter = 40; // px
+    const opacityIntervalDuration = 500;
+    
+    let mapUnixTimestamp = 0;
+    let customImageLayer;
+
+    async function fetchData() {
+      try {
+        const response = await fetch('/api/data');
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      }
+    }
+
+    function toggleMarkers(markerType, isChecked) {
+      for (const marker of Object.values(markers[markerType])) {
+        if (isChecked) {
+          marker.addTo(map);
+        } else {
+          map.removeLayer(marker);
+        }
+      }
+    }
+
+    async function refreshMap(data) {
+      // Update customImageBounds based on the resolution and numTiles properties
+      let resolution = data.map_information.data.resolution;
+      let numTiles = data.map_information.data.numTiles;
+
+      const newBounds = [
+        [-numTiles / 2, -numTiles / 2],
+        [numTiles / 2, numTiles / 2],
+      ];
+
+      if (!customImageLayer) {
+        customImageLayer = L.imageOverlay('/minimap', newBounds).addTo(map);
+        map.fitBounds(newBounds);
+      } else {
+        customImageLayer.setBounds(newBounds);
+        const imageUrl = `/minimap?timestamp=${mapUnixTimestamp}`; // Add a cache-busting query parameter
+        customImageLayer.setUrl(imageUrl); // Update the customImageLayer's url
+      }
+    }
+
+    function updateTurretSize(turretMarker, newSize, anchorOffset) {
+      const turretDiv = turretMarker.getElement().querySelector('.turret-marker div');
+      turretDiv.style.width = `${newSize}px`;
+      turretDiv.style.height = `${newSize}px`;
+
+      const newIcon = L.divIcon({
+        className: 'turret-marker',
+        html: turretDiv.outerHTML,
+        iconSize: [newSize, newSize],
+        iconAnchor: [anchorOffset, anchorOffset],
+      });
+
+      turretMarker.setIcon(newIcon);
+    }
+
+    function updateTurretOpacity() {
+      const currentTime = Date.now();
+      for (const turretMarker of Object.values(markers.turrets)) {
+        const turretDiv = turretMarker.getElement().querySelector('.turret-marker div');
+        const firing = turretDiv.getAttribute('data-firing') === 'true';
+
+        if (firing) {
+          const opacityDifference = firingMaxOpacity - firingMinOpacity;
+          const opacityValue = firingMinOpacity + ((Math.sin(2 * Math.PI * currentTime / opacityIntervalDuration) + 1) / 2) * opacityDifference;
+          turretDiv.style.opacity = opacityValue;
+
+          // Increase diameter of map icon when firing and update anchor
+          updateTurretSize(turretMarker, firingDiameter, firingDiameter / 2);
+        } else {
+          turretDiv.style.opacity = nonFiringOpacity;
+
+          // Set diameter back to non-firing size and update anchor
+          updateTurretSize(turretMarker, nonFiringDiameter, nonFiringDiameter / 2);
+        }
+      }
+    }
+
+    function updateCountdownTimer(remainingSeconds) {
+      const countdownTimerElement = document.getElementById('countdown-timer');
+      countdownTimerElement.innerText = `Next screenshot in: ${remainingSeconds.toFixed(1)} seconds`;
+    }
+
+    async function updateMarkers() {
+      const data = await fetchData();
+
+      // Process player data
+      if (data.player_information.timestamp !== null) {
+        const playersData = data.player_information.data;
+        const newPlayerKeys = new Set(Object.keys(playersData));
+
+        // Update or add new player markers
+        for (const [playerName, playerInfo] of Object.entries(playersData)) {
+          if (playerInfo.position) {
+            const playerColor = `rgba(${playerInfo.color.r * 255}, ${playerInfo.color.g * 255}, ${playerInfo.color.b * 255}, ${playerInfo.color.a * 255})`;
+
+            const playerIcon = L.divIcon({
+              className: 'player-marker',
+              html: `
+                <div class="player-label">${playerName}</div>
+                <div style="background-color: white; width: 24px; height: 24px; border-radius: 50%; position: relative; z-index: 800;">
+                  <div style="background-color: ${playerColor}; width: 20px; height: 20px; border-radius: 50%; position: absolute; top: 2px; left: 2px; z-index: 801;"></div>
+                </div>
+              `,
+              iconSize: [24, 24],
+              iconAnchor: [12, 12],
+            });
+
+            if (markers.players[playerName]) {
+              markers.players[playerName].setLatLng([-playerInfo.position.y, playerInfo.position.x]);
+              markers.players[playerName].setIcon(playerIcon);
+              markers.players[playerName].setPopupContent(`<b>Player: ${playerName}</b><br>Health: ${playerInfo.health}<br>In combat: ${playerInfo.in_combat}`);
+            } else {
+              const marker = L.marker([playerInfo.position.x, playerInfo.position.y], { icon: playerIcon, zIndexOffset: 800 }).addTo(map);
+              marker.bindPopup(`<b>Player: ${playerName}</b><br>Health: ${playerInfo.health}<br>In combat: ${playerInfo.in_combat}`);
+              markers.players[playerName] = marker;
+            }
+          }
+        }
+
+        // Remove player markers that are not in the new data
+        for (const playerName of Object.keys(markers.players)) {
+          if (!newPlayerKeys.has(playerName)) {
+            map.removeLayer(markers.players[playerName]);
+            delete markers.players[playerName];
+          }
+        }
+      }
+
+      // Process train data
+      if (data.train_information.timestamp !== null) {
+        const trainsData = data.train_information.data;
+        const locomotives = trainsData.locomotives;
+
+        // Update or add new train markers
+        for (let i = 0; i < locomotives.length; i++) {
+          const trainPosition = locomotives[i].position;
+
+          const trainColor = `rgba(${locomotives[i].color.r * 255}, ${locomotives[i].color.g * 255}, ${locomotives[i].color.b * 255}, ${0.75})`;
+          const trainIcon = L.divIcon({
+            className: 'train-marker',
+            html: `
+              <div style="background-color: black; width: 24px; height: 24px; border-radius: 50%; position: relative; z-index: 500;">
+                <div style="background-color: ${trainColor}; width: 20px; height: 20px; border-radius: 50%; position: absolute; top: 2px; left: 2px; z-index: 501;"></div>
+              </div>
+            `,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+          });
+
+          if (markers.trains[i]) {
+            markers.trains[i].setLatLng([-trainPosition.y, trainPosition.x]);
+            markers.trains[i].setIcon(trainIcon);
+          } else {
+            const marker = L.marker([trainPosition.x, trainPosition.y], { icon: trainIcon, zIndexOffset: 500 }).addTo(map);
+            marker.bindPopup(`<b>Train ${locomotives[i].name}</b>`);
+            markers.trains[i] = marker;
+          }
+        }
+
+        // Remove train markers that are not in the new data
+        for (const trainIndex of Object.keys(markers.trains)) {
+          if (trainIndex >= locomotives.length) {
+            map.removeLayer(markers.trains[trainIndex]);
+            delete markers.trains[trainIndex];
+          }
+        }
+      }
+
+        // Process turret data
+    if (data.turret_information.timestamp !== null) {
+      const turretsData = data.turret_information.data;
+
+      // Update or add new turret markers
+      for (let i = 0; i < turretsData.length; i++) {
+        const turret = turretsData[i];
+        const turretPosition = turret.position;
+
+        const initialOpacity = turret.firing ? firingMinOpacity : nonFiringOpacity;
+
+        const turretIcon = L.divIcon({
+          className: 'turret-marker',
+          html: `
+            <div data-firing="${turret.firing}" style="background-color: red; width: ${nonFiringDiameter}px; height: ${nonFiringDiameter}px; border-radius: 50%; opacity: ${initialOpacity}; z-index: 100;"></div>
+          `,
+          iconSize: [nonFiringDiameter, nonFiringDiameter],
+          iconAnchor: [nonFiringDiameter / 2, nonFiringDiameter / 2],
+        });
+
+        if (markers.turrets[i]) {
+          markers.turrets[i].setLatLng([-turretPosition.y, turretPosition.x]);
+          markers.turrets[i].setIcon(turretIcon);
+          markers.turrets[i].setPopupContent(`<b>Turret ${i + 1}</b><br>Health: ${turret.health}<br>Firing: ${turret.firing}`);
+        } else {
+          const marker = L.marker([turretPosition.x, turretPosition.y], { icon: turretIcon, zIndexOffset: 100 }).addTo(map);
+          marker.bindPopup(`<b>Turret ${i + 1}</b><br>Health: ${turret.health}<br>Firing: ${turret.firing}`);
+          markers.turrets[i] = marker;
+        }
+      }
+
+  // Remove turret markers that are not in the new data
+  for (const turretIndex of Object.keys(markers.turrets)) {
+    if (turretIndex >= turretsData.length) {
+      map.removeLayer(markers.turrets[turretIndex]);
+      delete markers.turrets[turretIndex];
+    }
+  }
+}
+
+const remainingTicks = data.map_information.data.nextScreenshotTick - data.player_information.timestamp;
+      const remainingSeconds = remainingTicks / 60;
+      updateCountdownTimer(remainingSeconds);
+
+  // Refresh Map
+  if (data.map_information.data.unixTimestamp > mapUnixTimestamp) {
+        mapUnixTimestamp = data.map_information.data.unixTimestamp;
+        await refreshMap(data); // Call the refreshMap function
+      }
+    }
+
+    // UI Interactions
+    document.getElementById('toggle-players').addEventListener('change', (e) => {
+      toggleMarkers('players', e.target.checked);
+    });
+
+    document.getElementById('toggle-trains').addEventListener('change', (e) => {
+      toggleMarkers('trains', e.target.checked);
+    });
+
+    document.getElementById('toggle-turrets').addEventListener('change', (e) => {
+      toggleMarkers('turrets', e.target.checked);
+    });
+
+    // Call once to set initial values
+    updateMarkers();
+    toggleMarkers('trains', false);
+    toggleMarkers('turrets', false);
+
+    // Update every N miliseconds
+    setInterval(updateTurretOpacity, 100);
+    setInterval(updateMarkers, 500);
+
+  </script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+    "port": 3000,
+    "cacheExpirationTime": 1000,
+    "minimapPath": "../../../script-output/kFacts/minimap.png",
+    "kFactsPath": "../../../script-output/kFacts/kFacts.json"
+  }
+  
