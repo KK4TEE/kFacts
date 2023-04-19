@@ -36,7 +36,7 @@ git clone https://github.com/KK4TEE/kFacts.git
 2. Change to the project directory:
 ```
 cd kFacts
-cd kFacts
+cd api_server
 ```
 
 3. Install the required dependencies:
